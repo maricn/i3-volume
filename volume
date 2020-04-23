@@ -66,10 +66,15 @@ get_volume_amixer() {
 # Arguments:
 #   Step        (integer) Percentage to increase by.
 raise_volume() {
-    if $opt_use_amixer; then
-        raise_volume_amixer "$card" "$1"
-    else
-        raise_volume_pulseaudio "$sink" "$1"
+    local current="$(get_volume)"
+    local max_percent="${2:-100}"
+
+    if [ "$current" -lt "$max_percent" ]; then
+        if $opt_use_amixer; then
+            raise_volume_amixer "$card" "$1"
+        else
+            raise_volume_pulseaudio "$sink" "$1"
+        fi
     fi
 }
 
@@ -138,10 +143,15 @@ lower_volume_amixer() {
 # Arguments:
 #   Step        (integer) Percentage to decrease by.
 set_volume() {
-    if $opt_use_amixer; then
-        set_volume_amixer "$card" "$1"
-    else
-        set_volume_pulseaudio "$sink" "$1"
+    local current=get_volume
+    local max="${2:-100}"
+
+    if [ "$current" -lt "$max" ]; then
+        if $opt_use_amixer; then
+            set_volume_amixer "$card" "$1"
+        else
+            set_volume_pulseaudio "$sink" "$1"
+        fi
     fi
 }
 
@@ -359,6 +369,7 @@ Options:
   -i <amount>       increase volume
   -l                use legacy icons
   -m                toggle mute
+  -M <amount>       maximum volume percentage
   -n                show notifications
   -p                show text volume progress bar
   -s <sink_name>    symbolic name of sink (pulseaudio only)
@@ -386,9 +397,10 @@ signal=""
 sink=""
 statusline=""
 volume=5
+max_percent=100
 expires="1500"
 
-while getopts ":ac:d:e:hi:lmnps:t:u:v:y" o; do
+while getopts ":ac:d:e:hi:lmM:nps:t:u:v:y" o; do
     case "$o" in
         a)
             opt_use_amixer=true
@@ -412,6 +424,9 @@ while getopts ":ac:d:e:hi:lmnps:t:u:v:y" o; do
             ;;
         m)
             opt_mute_volume=true
+            ;;
+        M)
+            max_percent="${OPTARG}"
             ;;
         n)
             opt_notification=true
@@ -449,7 +464,7 @@ if ! $opt_use_amixer; then
 fi
 
 if ${opt_increase_volume}; then
-    raise_volume $volume
+    raise_volume $volume $max_percent
 fi
 
 if ${opt_decrease_volume}; then
@@ -457,7 +472,7 @@ if ${opt_decrease_volume}; then
 fi
 
 if ${opt_set_volume}; then
-    set_volume $volume
+    set_volume $volume $max_percent
 fi
 
 if ${opt_mute_volume}; then
